@@ -1,11 +1,11 @@
-# react-discriminated-context
+# @bender-tools/react-discriminated-union-context
 
 A TypeScript library for creating type-safe React contexts with discriminated unions. This library provides full type narrowing support when accessing context values based on their discriminant.
 
 ## Installation
 
 ```bash
-npm install react-discriminated-context
+npm install @bender-tools/react-discriminated-union-context
 ```
 
 ## Features
@@ -20,38 +20,36 @@ npm install react-discriminated-context
 ### Basic Example
 
 ```tsx
-import { createDiscriminatedContext } from 'react-discriminated-context';
+import { createDiscriminatedContext } from "@bender-tools/react-discriminated-union-context";
 
 // Define your discriminated union type
 type AuthState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'authenticated'; user: { name: string; email: string } }
-  | { status: 'error'; error: string };
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "authenticated"; user: { name: string; email: string } }
+  | { status: "error"; error: string };
 
 // Create the context with the discriminant key
-const { Context: AuthContext, useContext: useAuthContext } = createDiscriminatedContext<AuthState, 'status'>(
-  'status',
-  { status: 'idle' }
-);
+const { Context: AuthContext, useContext: useAuthContext } =
+  createDiscriminatedContext<AuthState, "status">("status", {
+    status: "idle",
+  });
 
 // Use in a provider
 function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [auth, setAuth] = useState<AuthState>({ status: 'idle' });
-  
+  const [auth, setAuth] = useState<AuthState>({ status: "idle" });
+
   return (
-    <AuthContext.Provider value={auth}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>
   );
 }
 
 // Use in components - type is automatically narrowed!
 function UserProfile() {
   // When you pass the expected discriminant value, the type is narrowed
-  const auth = useAuthContext('authenticated');
+  const auth = useAuthContext("authenticated");
   // auth is typed as: { status: 'authenticated'; user: { name: string; email: string } }
-  
+
   return <div>Welcome, {auth.user.name}!</div>;
 }
 
@@ -59,15 +57,15 @@ function UserProfile() {
 function AuthStatus() {
   const auth = useAuthContext();
   // auth is typed as: AuthState (the full union)
-  
+
   switch (auth.status) {
-    case 'idle':
+    case "idle":
       return <div>Not started</div>;
-    case 'loading':
+    case "loading":
       return <div>Loading...</div>;
-    case 'authenticated':
+    case "authenticated":
       return <div>Logged in as {auth.user.name}</div>;
-    case 'error':
+    case "error":
       return <div>Error: {auth.error}</div>;
   }
 }
@@ -80,8 +78,8 @@ When you specify an expected discriminant value, the hook will throw an error at
 ```tsx
 function UserProfile() {
   // This will throw if auth.status !== 'authenticated'
-  const auth = useAuthContext('authenticated');
-  
+  const auth = useAuthContext("authenticated");
+
   return <div>Welcome, {auth.user.name}!</div>;
 }
 ```
@@ -110,17 +108,95 @@ A utility type that extracts all possible values of the discriminant key from a 
 
 ```tsx
 type AuthState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'authenticated'; user: User };
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "authenticated"; user: User };
 
-type StatusValues = DiscriminantValues<AuthState, 'status'>;
+type StatusValues = DiscriminantValues<AuthState, "status">;
 // Result: 'idle' | 'loading' | 'authenticated'
 ```
 
+## Example Application
+
+The repository includes a full example React application demonstrating the library in action.
+
+### Running the Example
+
+```bash
+# Clone the repository
+git clone https://github.com/ScriptAlchemist/react-discriminated-union-context.git
+cd react-discriminated-union-context
+
+# Build the library
+npm install
+npm run build
+
+# Run the example app
+cd example
+npm install
+npm run dev
+```
+
+Then open `http://localhost:5173` in your browser.
+
+### Example Structure
+
+The example demonstrates an authentication state machine:
+
+```
+example/src/
+├── authContext.ts          # Context and types definition
+├── components/
+│   ├── AuthStatus.tsx      # Uses full union type
+│   ├── UserProfile.tsx     # Narrowed to "authenticated"
+│   └── ErrorDisplay.tsx    # Narrowed to "error"
+├── App.tsx                 # Main app with provider
+└── main.tsx                # Entry point
+```
+
+### Key Patterns Demonstrated
+
+1. **Shared Context Module** (`authContext.ts`):
+
+   ```tsx
+   import { createDiscriminatedContext } from "@bender-tools/react-discriminated-union-context";
+
+   export type AuthState =
+     | { status: "idle" }
+     | { status: "loading" }
+     | {
+         status: "authenticated";
+         user: { name: string; email: string };
+       }
+     | { status: "error"; error: string };
+
+   export const { Context: AuthContext, useContext: useAuthContext } =
+     createDiscriminatedContext<AuthState, "status">("status", {
+       status: "idle",
+     });
+   ```
+
+2. **Full Union Type Usage** (`AuthStatus.tsx`):
+
+   ```tsx
+   export function AuthStatus() {
+     const auth = useAuthContext(); // Type: AuthState
+     // Handle all cases manually
+   }
+   ```
+
+3. **Type Narrowing** (`UserProfile.tsx`):
+   ```tsx
+   export function UserProfile() {
+     const auth = useAuthContext("authenticated");
+     // Type: { status: "authenticated"; user: { name: string; email: string } }
+     return <div>{auth.user.name}</div>; // TypeScript knows auth.user exists!
+   }
+   ```
+
 ## Requirements
 
-- React 18.0.0 or higher
+- React 18.0.0 or higher (including React 19)
 - TypeScript 5.0 or higher (for best type inference)
 
 ## License
