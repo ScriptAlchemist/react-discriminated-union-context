@@ -5,11 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2024-12-09
+
+### Changed
+
+- Auto-publish to npm on merge to main (instead of requiring manual GitHub Release)
+
 ## [1.0.4] - 2024-12-09
 
-### Added
+### Changed
 
-- setting up ci publish
+- Setting up CI publish workflow
 
 ## [1.0.3] - 2024-12-09
 
@@ -42,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ESM-only build output
 - Support for React 18 and React 19
 
+[1.0.5]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.5
+[1.0.4]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.4
 [1.0.3]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.3
 [1.0.2]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.2
 [1.0.1]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.1
