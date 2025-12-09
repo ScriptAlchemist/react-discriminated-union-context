@@ -12,8 +12,10 @@ import { createContext, useContext } from "react";
  * type StatusValues = DiscriminantValues<AuthState, 'status'>;
  * // Result: 'idle' | 'loading' | 'authenticated'
  */
-export type DiscriminantValues<TUnion, TKey extends keyof TUnion> =
-  TUnion extends unknown ? TUnion[TKey] : never;
+export type DiscriminantValues<
+  TUnion,
+  TKey extends keyof TUnion,
+> = TUnion extends unknown ? TUnion[TKey] : never;
 
 /**
  * Creates a type-safe React context for discriminated union types.
@@ -62,14 +64,14 @@ export function createDiscriminatedContext<
    */
   function useDiscriminatedContext(): TUnion;
   function useDiscriminatedContext<TValue extends ValidValues>(
-    expected: TValue
+    expected: TValue,
   ): Extract<TUnion, { [K in TDiscriminant]: TValue }>;
   function useDiscriminatedContext(expected?: ValidValues) {
     const value = useContext(Ctx);
 
     if (expected !== undefined && value[discriminantKey] !== expected) {
       throw new Error(
-        `Expected ${discriminantKey}=${String(expected)}, got ${String(value[discriminantKey])}`
+        `Expected ${discriminantKey}=${String(expected)}, got ${String(value[discriminantKey])}`,
       );
     }
 
