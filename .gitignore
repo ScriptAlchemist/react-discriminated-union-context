@@ -25,3 +25,5 @@ coverage/
 *.tmp
 *.temp
 .cache/
+
+.rules

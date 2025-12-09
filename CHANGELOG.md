@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.8] - 2024-12-09
+
+### Added
+
+- Added `'default'` option to return the full union type without narrowing (e.g., `useContext('default')`)
+- Added helpful TypeScript hints when accessing properties that require narrowing (e.g., `Use useContext("authenticated") to access "user"`)
+- Added `.rules` file with project workflow guidelines
+- Documented branching strategy, changelog updates, and version bumping requirements
+
+### Changed
+
+- **BREAKING:** `useContext` hook now requires a discriminant value parameter - calling without arguments (`useContext()`) is no longer allowed
+- TypeScript will show available discriminant values (including `'default'`) when typing the parameter
+- Runtime validation always checks that the expected value matches the actual discriminant (except for `'default'`)
+
 ## [1.0.8] - 2024-12-09
 
 ### Changed
@@ -73,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ESM-only build output
 - Support for React 18 and React 19
 
+[1.0.9]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.9
 [1.0.8]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.8
 [1.0.7]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.7
 [1.0.6]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.6

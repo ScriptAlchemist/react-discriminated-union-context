@@ -53,9 +53,9 @@ function UserProfile() {
   return <div>Welcome, {auth.user.name}!</div>;
 }
 
-// Use without narrowing
+// Use 'default' to get the full union type without narrowing
 function AuthStatus() {
-  const auth = useAuthContext();
+  const auth = useAuthContext("default");
   // auth is typed as: AuthState (the full union)
 
   switch (auth.status) {
@@ -68,6 +68,23 @@ function AuthStatus() {
     case "error":
       return <div>Error: {auth.error}</div>;
   }
+}
+
+// With 'default', you can also destructure properties from any union member
+function AuthStatusWithDestructuring() {
+  const auth = useAuthContext("default");
+  // Destructure all possible properties - hover over 'user' or 'error'
+  // to see hints like: `Use useContext("authenticated") to access "user"`
+  const { status, user, error } = auth;
+
+  // Note: 'user' and 'error' may be undefined depending on current state
+  return (
+    <div>
+      <p>Status: {status}</p>
+      {status === "authenticated" && user && <p>User: {user.name}</p>}
+      {status === "error" && error && <p>Error: {error}</p>}
+    </div>
+  );
 }
 ```
 
@@ -100,7 +117,7 @@ Creates a discriminated context with type-safe narrowing support.
 #### Returns
 
 - `Context`: The React Context object (for use with `Context.Provider`)
-- `useContext`: A hook to consume the context with optional type narrowing
+- `useContext`: A hook to consume the context with required type narrowing. Pass a discriminant value to narrow the type, or `'default'` to get the full union type.
 
 ### `DiscriminantValues<TUnion, TKey>`
 
@@ -180,18 +197,48 @@ example/src/
 
    ```tsx
    export function AuthStatus() {
-     const auth = useAuthContext(); // Type: AuthState
+     const auth = useAuthContext("default"); // Type: AuthState
      // Handle all cases manually
    }
    ```
 
-3. **Type Narrowing** (`UserProfile.tsx`):
+3. **Destructuring with 'default'** - Access all possible properties:
+
+   ```tsx
+   export function AuthStatus() {
+     const auth = useAuthContext("default");
+     // Destructure properties from any union member
+     // Hover over 'user' or 'error' to see narrowing hints
+     const { status, user, error } = auth;
+
+     // TypeScript hints: `Use useContext("authenticated") to access "user"`
+     console.log("status:", status);
+     console.log("user:", user); // May be undefined
+     console.log("error:", error); // May be undefined
+   }
+   ```
+
+4. **Type Narrowing** (`UserProfile.tsx`):
+
    ```tsx
    export function UserProfile() {
      const auth = useAuthContext("authenticated");
      // Type: { status: "authenticated"; user: { name: string; email: string } }
      return <div>{auth.user.name}</div>; // TypeScript knows auth.user exists!
    }
+   ```
+
+5. **Required Parameter**:
+
+   ```tsx
+   // ❌ Error - empty () not allowed, must specify a value
+   const auth = useAuthContext();
+
+   // ✅ Use 'default' to get full union type
+   const auth = useAuthContext("default");
+
+   // ✅ Use a discriminant value to narrow the type
+   const auth = useAuthContext("authenticated");
    ```
 
 ## Requirements
