@@ -5,20 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.8] - 2024-12-09
+## [1.2.0] - 2025-12-09
 
 ### Added
 
 - Added `'default'` option to return the full union type without narrowing (e.g., `useContext('default')`)
-- Added helpful TypeScript hints when accessing properties that require narrowing (e.g., `Use useContext("authenticated") to access "user"`)
-- Added `.rules` file with project workflow guidelines
-- Documented branching strategy, changelog updates, and version bumping requirements
+- Added helpful TypeScript hints when using `'default'` - hover over properties like `user` or `error` to see hints like `Use useContext("authenticated") to access "user" (requires status="authenticated")`
+- Narrowed types (e.g., `useContext("idle")`) show standard "Property does not exist" errors - switch to `'default'` to discover which variant has the property you need
 
 ### Changed
 
+- **BREAKING:** Removed `defaultValue` parameter from `createDiscriminatedContext` - no longer needed
 - **BREAKING:** `useContext` hook now requires a discriminant value parameter - calling without arguments (`useContext()`) is no longer allowed
+- `useContext` now throws an error if called outside of a Provider
 - TypeScript will show available discriminant values (including `'default'`) when typing the parameter
 - Runtime validation always checks that the expected value matches the actual discriminant (except for `'default'`)
+- Updated README and example components to reflect new API
+
+## [1.1.8] - 2024-12-09
+
+### Added
+
+- Added `.rules` file with project workflow guidelines
+- Documented branching strategy, changelog updates, and version bumping requirements
 
 ## [1.0.8] - 2024-12-09
 
@@ -88,7 +97,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ESM-only build output
 - Support for React 18 and React 19
 
-[1.0.9]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.9
+[1.2.0]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.2.0
+[1.1.8]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.1.8
 [1.0.8]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.8
 [1.0.7]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.7
 [1.0.6]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.6
