@@ -1,6 +1,53 @@
 import { createContext, useContext } from "react";
 
 /**
+ * Gets all keys from all members of a union type.
+ */
+type AllKeysOfUnion<T> = T extends unknown ? keyof T : never;
+
+/**
+ * Gets the discriminant value(s) for union members that contain a specific key.
+ */
+type DiscriminantForKey<
+  TUnion,
+  TDiscriminant extends keyof TUnion,
+  TKey extends PropertyKey,
+> = TUnion extends unknown
+  ? TKey extends keyof TUnion
+    ? TUnion[TDiscriminant]
+    : never
+  : never;
+
+/**
+ * A hint type that suggests which discriminant value to use for a property.
+ */
+type NarrowingHint<
+  TDiscriminant extends string,
+  TKey extends PropertyKey,
+  TValue,
+> = TValue extends string | number
+  ? `Use useContext("${TValue}") to access "${TKey & string}" (requires ${TDiscriminant}="${TValue}")`
+  : never;
+
+/**
+ * Creates a type for the 'default' return value that provides helpful hints
+ * for properties that require narrowing.
+ */
+type DefaultReturnType<
+  TUnion,
+  TDiscriminant extends keyof TUnion & string,
+> = TUnion & {
+  readonly [K in Exclude<
+    AllKeysOfUnion<TUnion>,
+    keyof TUnion
+  >]?: NarrowingHint<
+    TDiscriminant,
+    K,
+    DiscriminantForKey<TUnion, TDiscriminant, K>
+  >;
+};
+
+/**
  * Extracts all possible values of a discriminant key from a union type.
  *
  * @example
@@ -52,24 +99,44 @@ export function createDiscriminatedContext<
   // Use the helper type for clearer parameter typing
   type ValidValues = DiscriminantValues<TUnion, TDiscriminant>;
 
+  // Special value to get the full union without narrowing
+  const DEFAULT_VALUE = "default" as const;
+  type DefaultValue = typeof DEFAULT_VALUE;
+
   /**
-   * Hook to consume the discriminated context.
+   * Hook to consume the discriminated context with type narrowing.
    *
-   * @overload When called without arguments, returns the full union type
-   * @overload When called with an expected discriminant value, returns the narrowed type
+   * @param expected - The discriminant value to narrow the type. Must be one of the valid
+   *                   discriminant values from the union type (e.g., 'idle' | 'loading' | 'error'),
+   *                   or 'default' to get the full union type without narrowing.
+   * @returns The context value, narrowed to the specific union member matching the expected value,
+   *          or the full union type if 'default' is passed.
+   * @throws Error if expected value (other than 'default') doesn't match the actual discriminant
    *
-   * @param expected - Optional discriminant value to narrow the type
-   * @returns The context value, narrowed if an expected value was provided
-   * @throws Error if expected value is provided but doesn't match the actual discriminant
+   * @example
+   * // For a union with status: 'idle' | 'loading' | 'authenticated' | 'error'
+   * const auth = useContext('authenticated');
+   * // auth is narrowed to: { status: 'authenticated'; user: { name: string } }
+   *
+   * // To get the full union type without narrowing:
+   * const auth = useContext('default');
+   * // auth is the full union: AuthState
    */
-  function useDiscriminatedContext(): TUnion;
+  function useDiscriminatedContext(
+    expected: DefaultValue,
+  ): DefaultReturnType<TUnion, TDiscriminant>;
   function useDiscriminatedContext<TValue extends ValidValues>(
     expected: TValue,
   ): Extract<TUnion, { [K in TDiscriminant]: TValue }>;
-  function useDiscriminatedContext(expected?: ValidValues) {
+  function useDiscriminatedContext(
+    expected: ValidValues | DefaultValue,
+  ) {
     const value = useContext(Ctx);
 
-    if (expected !== undefined && value[discriminantKey] !== expected) {
+    if (
+      expected !== DEFAULT_VALUE &&
+      value[discriminantKey] !== expected
+    ) {
       throw new Error(
         `Expected ${discriminantKey}=${String(expected)}, got ${String(value[discriminantKey])}`,
       );
@@ -84,7 +151,8 @@ export function createDiscriminatedContext<
      */
     Context: Ctx,
     /**
-     * Hook to consume the discriminated context with optional type narrowing.
+     * Hook to consume the discriminated context with required type narrowing.
+     * You must specify a discriminant value to narrow the type.
      */
     useContext: useDiscriminatedContext,
   } as const;
