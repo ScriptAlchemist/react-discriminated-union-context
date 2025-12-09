@@ -2,7 +2,7 @@
   "name": "@bender-tools/react-discriminated-union-context",
   "repository": "https://github.com/ScriptAlchemist/react-discriminated-union-context",
   "author": "Justin Bender <jrkbender@gmail.com>",
-  "version": "1.1.8",
+  "version": "1.2.0",
   "description": "A TypeScript library for creating type-safe discriminated union contexts in React",
   "type": "module",
   "main": "./dist/index.js",

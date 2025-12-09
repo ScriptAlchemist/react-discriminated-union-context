@@ -9,6 +9,4 @@ export type AuthState =
 
 // Create the discriminated context
 export const { Context: AuthContext, useContext: useAuthContext } =
-  createDiscriminatedContext<AuthState, "status">("status", {
-    status: "idle",
-  });
+  createDiscriminatedContext<AuthState, "status">("status");

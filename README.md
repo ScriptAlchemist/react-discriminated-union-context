@@ -31,9 +31,7 @@ type AuthState =
 
 // Create the context with the discriminant key
 const { Context: AuthContext, useContext: useAuthContext } =
-  createDiscriminatedContext<AuthState, "status">("status", {
-    status: "idle",
-  });
+  createDiscriminatedContext<AuthState, "status">("status");
 
 // Use in a provider
 function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -105,19 +103,22 @@ This is useful for components that should only render in specific states, catchi
 
 ## API
 
-### `createDiscriminatedContext<TUnion, TDiscriminant>(discriminantKey, defaultValue)`
+### `createDiscriminatedContext<TUnion, TDiscriminant>(discriminantKey)`
 
 Creates a discriminated context with type-safe narrowing support.
 
 #### Parameters
 
 - `discriminantKey`: The key used as the discriminant in your union type
-- `defaultValue`: The default value for the context
 
 #### Returns
 
 - `Context`: The React Context object (for use with `Context.Provider`)
 - `useContext`: A hook to consume the context with required type narrowing. Pass a discriminant value to narrow the type, or `'default'` to get the full union type.
+
+#### Throws
+
+- Error if `useContext` is called outside of a Provider
 
 ### `DiscriminantValues<TUnion, TKey>`
 
@@ -188,9 +189,7 @@ example/src/
      | { status: "error"; error: string };
 
    export const { Context: AuthContext, useContext: useAuthContext } =
-     createDiscriminatedContext<AuthState, "status">("status", {
-       status: "idle",
-     });
+     createDiscriminatedContext<AuthState, "status">("status");
    ```
 
 2. **Full Union Type Usage** (`AuthStatus.tsx`):

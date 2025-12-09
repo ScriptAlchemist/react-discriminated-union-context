@@ -71,8 +71,8 @@ export type DiscriminantValues<
  * type narrowing based on the discriminant value.
  *
  * @param discriminantKey - The key used as the discriminant in the union type
- * @param defaultValue - The default value for the context
  * @returns An object containing the Context and a useContext hook
+ * @throws Error if useContext is called outside of a Provider
  *
  * @example
  * type AuthState =
@@ -82,8 +82,7 @@ export type DiscriminantValues<
  *   | { status: 'error'; error: string };
  *
  * const { Context, useContext } = createDiscriminatedContext<AuthState, 'status'>(
- *   'status',
- *   { status: 'idle' }
+ *   'status'
  * );
  *
  * // In a component:
@@ -93,8 +92,8 @@ export type DiscriminantValues<
 export function createDiscriminatedContext<
   TUnion,
   TDiscriminant extends keyof TUnion & string,
->(discriminantKey: TDiscriminant, defaultValue: TUnion) {
-  const Ctx = createContext<TUnion>(defaultValue);
+>(discriminantKey: TDiscriminant) {
+  const Ctx = createContext<TUnion | null>(null);
 
   // Use the helper type for clearer parameter typing
   type ValidValues = DiscriminantValues<TUnion, TDiscriminant>;
@@ -131,7 +130,15 @@ export function createDiscriminatedContext<
   function useDiscriminatedContext(
     expected: ValidValues | DefaultValue,
   ) {
-    const value = useContext(Ctx);
+    const contextValue = useContext(Ctx);
+
+    if (contextValue === null) {
+      throw new Error(
+        "useContext must be used within a Provider. Wrap your component tree with <Context.Provider>.",
+      );
+    }
+
+    const value: TUnion = contextValue;
 
     if (
       expected !== DEFAULT_VALUE &&
