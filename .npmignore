@@ -1,0 +1,13 @@
+src/
+tsconfig.json
+.github/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__/
+coverage/
+.eslintrc*
+.prettierrc*
+jest.config.*
+vitest.config.*
