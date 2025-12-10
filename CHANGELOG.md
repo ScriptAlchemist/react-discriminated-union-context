@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.0] - 2025-12-10
 
+### Added
+
+- Added comprehensive test suite using Node.js built-in test runner (41 tests)
+- Tests cover validation logic, error handling, different discriminant types (string, number, boolean, symbol)
+- Added `test` and `test:ci` npm scripts
+
 ### Changed
 
 - Improved IDE autocomplete: narrowed types no longer show hint properties as suggestions
