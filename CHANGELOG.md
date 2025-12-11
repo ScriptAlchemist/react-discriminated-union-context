@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added comprehensive test suite using Node.js built-in test runner (41 tests)
-- Tests cover validation logic, error handling, different discriminant types (string, number, boolean, symbol)
+- Added comprehensive test suite using Node.js built-in test runner with @testing-library/react (27 tests)
+- Tests cover actual React hook behavior with providers, type narrowing, error handling, and different discriminant types
 - Added `test` and `test:ci` npm scripts
+- Added jsdom setup for React testing environment
 
 ### Changed
 

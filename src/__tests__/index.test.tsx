@@ -1,5 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
+import React from "react";
+import { renderHook } from "@testing-library/react";
+import { createDiscriminatedContext } from "../index.js";
 
 // =============================================================================
 // Test Types
@@ -18,47 +21,301 @@ type AuthState =
   | { status: "error"; error: string; retryable: boolean };
 
 // =============================================================================
-// Core validation logic extracted for testing
-// This mirrors the validation in createDiscriminatedContext
+// Compile-time Type Tests
+// These tests verify TypeScript type narrowing at compile time.
+// If these fail, TypeScript compilation will fail.
 // =============================================================================
 
-function validateDiscriminant<T extends Record<string, unknown>>(
-  value: T,
-  discriminantKey: string,
-  expected: string | number | boolean | symbol,
-): void {
-  const DEFAULT_VALUE = "default";
+function _compileTimeTypeTests() {
+  const { Context, useContext } = createDiscriminatedContext<
+    AuthState,
+    "status"
+  >("status");
 
-  if (
-    expected !== DEFAULT_VALUE &&
-    value[discriminantKey] !== expected
-  ) {
-    throw new Error(
-      `Expected ${discriminantKey}=${String(expected)}, got ${String(value[discriminantKey])}`,
-    );
-  }
+  // Test: 'default' returns full union - can access status but not user directly
+  const _testDefault = () => {
+    const auth = useContext("default");
+    const _status: "idle" | "loading" | "authenticated" | "error" =
+      auth.status;
+
+    // With default, optional properties from other variants are available but possibly undefined
+    const _user: User | undefined = auth.user;
+    const _error: string | undefined = auth.error;
+    const _message: string | undefined = auth.message;
+    const _retryable: boolean | undefined = auth.retryable;
+  };
+
+  // Test: 'authenticated' narrows to only authenticated variant
+  const _testAuthenticated = () => {
+    const auth = useContext("authenticated");
+    const _status: "authenticated" = auth.status;
+    const _user: User = auth.user; // Not undefined!
+    const _name: string = auth.user.name;
+
+    // @ts-expect-error - error property doesn't exist on authenticated variant
+    const _error = auth.error;
+
+    // @ts-expect-error - retryable property doesn't exist on authenticated variant
+    const _retryable = auth.retryable;
+  };
+
+  // Test: 'error' narrows to only error variant
+  const _testError = () => {
+    const auth = useContext("error");
+    const _status: "error" = auth.status;
+    const _error: string = auth.error; // Not undefined!
+    const _retryable: boolean = auth.retryable; // Not undefined!
+
+    // @ts-expect-error - user property doesn't exist on error variant
+    const _user = auth.user;
+  };
+
+  // Test: 'idle' narrows to only idle variant
+  const _testIdle = () => {
+    const auth = useContext("idle");
+    const _status: "idle" = auth.status;
+
+    // @ts-expect-error - user property doesn't exist on idle variant
+    const _user = auth.user;
+
+    // @ts-expect-error - error property doesn't exist on idle variant
+    const _error = auth.error;
+  };
+
+  // Test: 'loading' narrows to only loading variant
+  const _testLoading = () => {
+    const auth = useContext("loading");
+    const _status: "loading" = auth.status;
+    const _message: string | undefined = auth.message; // Optional property
+
+    // @ts-expect-error - user property doesn't exist on loading variant
+    const _user = auth.user;
+  };
+
+  // Test: Destructuring works with narrowed types
+  const _testDestructuring = () => {
+    const { status, user } = useContext("authenticated");
+    const _s: "authenticated" = status;
+    const _u: User = user;
+  };
+
+  // Test: Destructuring works with default
+  const _testDestructuringDefault = () => {
+    const { status, user, error } = useContext("default");
+    const _s: "idle" | "loading" | "authenticated" | "error" = status;
+    const _u: User | undefined = user;
+    const _e: string | undefined = error;
+  };
 }
 
-function validateContextNotNull<T>(
-  value: T | null,
-): asserts value is T {
-  if (value === null) {
-    throw new Error(
-      "useContext must be used within a Provider. Wrap your component tree with <Context.Provider>.",
-    );
-  }
-}
-
 // =============================================================================
-// Tests
+// Runtime Tests
 // =============================================================================
 
-describe("Discriminated Context Validation Logic", () => {
-  describe("validateContextNotNull", () => {
-    it("should throw when value is null", () => {
+describe("createDiscriminatedContext", () => {
+  describe("context creation", () => {
+    it("should return an object with Context and useContext", () => {
+      const result = createDiscriminatedContext<AuthState, "status">(
+        "status",
+      );
+
+      assert.ok(result.Context, "Context should be defined");
+      assert.ok(result.useContext, "useContext should be defined");
+      assert.strictEqual(
+        typeof result.useContext,
+        "function",
+        "useContext should be a function",
+      );
+      assert.ok(
+        result.Context.Provider,
+        "Context should have a Provider",
+      );
+    });
+  });
+
+  describe("useContext returns correct values", () => {
+    it("should return the provided value when using 'default'", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
+      const testValue: AuthState = { status: "idle" };
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
+      const { result } = renderHook(() => useContext("default"), {
+        wrapper,
+      });
+
+      assert.deepStrictEqual(result.current, testValue);
+    });
+
+    it("should return the provided authenticated state", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
+      const testValue: AuthState = {
+        status: "authenticated",
+        user: { id: "1", name: "John", email: "john@example.com" },
+      };
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
+      const { result } = renderHook(() => useContext("authenticated"), {
+        wrapper,
+      });
+
+      assert.strictEqual(result.current.status, "authenticated");
+      assert.strictEqual(result.current.user.name, "John");
+      assert.strictEqual(result.current.user.email, "john@example.com");
+    });
+
+    it("should return the provided error state", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
+      const testValue: AuthState = {
+        status: "error",
+        error: "Network failure",
+        retryable: true,
+      };
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
+      const { result } = renderHook(() => useContext("error"), {
+        wrapper,
+      });
+
+      assert.strictEqual(result.current.status, "error");
+      assert.strictEqual(result.current.error, "Network failure");
+      assert.strictEqual(result.current.retryable, true);
+    });
+
+    it("should return the provided loading state with optional message", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
+      const testValue: AuthState = {
+        status: "loading",
+        message: "Please wait...",
+      };
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
+      const { result } = renderHook(() => useContext("loading"), {
+        wrapper,
+      });
+
+      assert.strictEqual(result.current.status, "loading");
+      assert.strictEqual(result.current.message, "Please wait...");
+    });
+
+    it("should return the same object reference", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
+      const testValue: AuthState = {
+        status: "authenticated",
+        user: { id: "1", name: "Test", email: "test@test.com" },
+      };
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
+      const { result } = renderHook(() => useContext("authenticated"), {
+        wrapper,
+      });
+
+      assert.strictEqual(
+        result.current,
+        testValue,
+        "Should return the same object reference",
+      );
+    });
+  });
+
+  describe("'default' does not validate discriminant", () => {
+    it("should not throw when status is idle but using 'default'", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
+      const testValue: AuthState = { status: "idle" };
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
+      assert.doesNotThrow(() => {
+        renderHook(() => useContext("default"), { wrapper });
+      });
+    });
+
+    it("should not throw when status is error but using 'default'", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
+      const testValue: AuthState = {
+        status: "error",
+        error: "fail",
+        retryable: false,
+      };
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
+      assert.doesNotThrow(() => {
+        renderHook(() => useContext("default"), { wrapper });
+      });
+    });
+  });
+
+  describe("throws when used outside Provider", () => {
+    it("should throw descriptive error when no Provider exists", () => {
+      const { useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
       assert.throws(
         () => {
-          validateContextNotNull(null);
+          renderHook(() => useContext("default"));
         },
         {
           message:
@@ -66,133 +323,26 @@ describe("Discriminated Context Validation Logic", () => {
         },
       );
     });
-
-    it("should not throw when value is defined", () => {
-      const testValue: AuthState = { status: "idle" };
-
-      assert.doesNotThrow(() => {
-        validateContextNotNull(testValue);
-      });
-    });
-
-    it("should not throw for objects", () => {
-      const testValue = { status: "authenticated", user: { id: "1" } };
-
-      assert.doesNotThrow(() => {
-        validateContextNotNull(testValue);
-      });
-    });
-
-    it("should not throw for empty objects", () => {
-      assert.doesNotThrow(() => {
-        validateContextNotNull({});
-      });
-    });
   });
 
-  describe("validateDiscriminant with 'default'", () => {
-    it("should not throw when using 'default' with idle status", () => {
+  describe("throws when discriminant does not match", () => {
+    it("should throw when expecting 'authenticated' but got 'idle'", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
       const testValue: AuthState = { status: "idle" };
 
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "default");
-      });
-    });
-
-    it("should not throw when using 'default' with authenticated status", () => {
-      const testValue: AuthState = {
-        status: "authenticated",
-        user: { id: "1", name: "John", email: "john@example.com" },
-      };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "default");
-      });
-    });
-
-    it("should not throw when using 'default' with error status", () => {
-      const testValue: AuthState = {
-        status: "error",
-        error: "Something went wrong",
-        retryable: true,
-      };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "default");
-      });
-    });
-
-    it("should not throw when using 'default' with loading status", () => {
-      const testValue: AuthState = {
-        status: "loading",
-        message: "Please wait...",
-      };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "default");
-      });
-    });
-  });
-
-  describe("validateDiscriminant with narrowed types", () => {
-    it("should not throw when expected discriminant matches - idle", () => {
-      const testValue: AuthState = { status: "idle" };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "idle");
-      });
-    });
-
-    it("should not throw when expected discriminant matches - authenticated", () => {
-      const testValue: AuthState = {
-        status: "authenticated",
-        user: { id: "123", name: "Jane", email: "jane@example.com" },
-      };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "authenticated");
-      });
-    });
-
-    it("should not throw when expected discriminant matches - error", () => {
-      const testValue: AuthState = {
-        status: "error",
-        error: "Network failure",
-        retryable: true,
-      };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "error");
-      });
-    });
-
-    it("should not throw when expected discriminant matches - loading", () => {
-      const testValue: AuthState = {
-        status: "loading",
-        message: "Please wait...",
-      };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "loading");
-      });
-    });
-
-    it("should not throw for loading without optional message", () => {
-      const testValue: AuthState = { status: "loading" };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "loading");
-      });
-    });
-  });
-
-  describe("validateDiscriminant error handling", () => {
-    it("should throw when expected authenticated but got idle", () => {
-      const testValue: AuthState = { status: "idle" };
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
 
       assert.throws(
         () => {
-          validateDiscriminant(testValue, "status", "authenticated");
+          renderHook(() => useContext("authenticated"), { wrapper });
         },
         {
           message: "Expected status=authenticated, got idle",
@@ -200,16 +350,27 @@ describe("Discriminated Context Validation Logic", () => {
       );
     });
 
-    it("should throw when expected loading but got error", () => {
+    it("should throw when expecting 'loading' but got 'error'", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
       const testValue: AuthState = {
         status: "error",
         error: "Something went wrong",
         retryable: false,
       };
 
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
       assert.throws(
         () => {
-          validateDiscriminant(testValue, "status", "loading");
+          renderHook(() => useContext("loading"), { wrapper });
         },
         {
           message: "Expected status=loading, got error",
@@ -217,34 +378,29 @@ describe("Discriminated Context Validation Logic", () => {
       );
     });
 
-    it("should throw when expected idle but got authenticated", () => {
+    it("should throw when expecting 'idle' but got 'authenticated'", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
       const testValue: AuthState = {
         status: "authenticated",
         user: { id: "1", name: "Test", email: "test@test.com" },
       };
 
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
       assert.throws(
         () => {
-          validateDiscriminant(testValue, "status", "idle");
+          renderHook(() => useContext("idle"), { wrapper });
         },
         {
           message: "Expected status=idle, got authenticated",
-        },
-      );
-    });
-
-    it("should throw when expected error but got loading", () => {
-      const testValue: AuthState = {
-        status: "loading",
-        message: "Working...",
-      };
-
-      assert.throws(
-        () => {
-          validateDiscriminant(testValue, "status", "error");
-        },
-        {
-          message: "Expected status=error, got loading",
         },
       );
     });
@@ -256,47 +412,29 @@ describe("Discriminated Context Validation Logic", () => {
       | { type: "success"; data: string }
       | { type: "failure"; reason: string };
 
-    it("should work with 'type' as discriminant key - success", () => {
+    it("should work with 'type' as discriminant key", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        RequestState,
+        "type"
+      >("type");
+
       const testValue: RequestState = {
         type: "success",
         data: "Hello World",
       };
 
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "type", "success");
-      });
-    });
-
-    it("should work with 'type' as discriminant key - failure", () => {
-      const testValue: RequestState = {
-        type: "failure",
-        reason: "Network error",
-      };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "type", "failure");
-      });
-    });
-
-    it("should work with 'type' as discriminant key - pending", () => {
-      const testValue: RequestState = { type: "pending" };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "type", "pending");
-      });
-    });
-
-    it("should throw for type mismatch with 'type' key", () => {
-      const testValue: RequestState = { type: "pending" };
-
-      assert.throws(
-        () => {
-          validateDiscriminant(testValue, "type", "success");
-        },
-        {
-          message: "Expected type=success, got pending",
-        },
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
       );
+
+      const { result } = renderHook(() => useContext("success"), {
+        wrapper,
+      });
+
+      assert.strictEqual(result.current.type, "success");
+      assert.strictEqual(result.current.data, "Hello World");
     });
 
     type StepState =
@@ -305,22 +443,45 @@ describe("Discriminated Context Validation Logic", () => {
       | { step: 3; password: string };
 
     it("should work with numeric discriminant values", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        StepState,
+        "step"
+      >("step");
+
       const testValue: StepState = {
         step: 2,
         email: "test@example.com",
       };
 
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "step", 2);
-      });
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
+      const { result } = renderHook(() => useContext(2), { wrapper });
+
+      assert.strictEqual(result.current.step, 2);
+      assert.strictEqual(result.current.email, "test@example.com");
     });
 
     it("should throw for numeric discriminant mismatch", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        StepState,
+        "step"
+      >("step");
+
       const testValue: StepState = { step: 1, name: "John" };
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
 
       assert.throws(
         () => {
-          validateDiscriminant(testValue, "step", 3);
+          renderHook(() => useContext(3), { wrapper });
         },
         {
           message: "Expected step=3, got 1",
@@ -328,80 +489,33 @@ describe("Discriminated Context Validation Logic", () => {
       );
     });
 
-    it("should work with step 1", () => {
-      const testValue: StepState = { step: 1, name: "Alice" };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "step", 1);
-      });
-    });
-
-    it("should work with step 3", () => {
-      const testValue: StepState = { step: 3, password: "secret123" };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "step", 3);
-      });
-    });
-  });
-
-  describe("boolean discriminant values", () => {
     type BooleanDiscriminant =
       | { active: true; data: string }
       | { active: false; reason: string };
 
-    it("should work with true boolean discriminant", () => {
+    it("should work with boolean discriminant values", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        BooleanDiscriminant,
+        "active"
+      >("active");
+
       const testValue: BooleanDiscriminant = {
         active: true,
         data: "test",
       };
 
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "active", true);
-      });
-    });
-
-    it("should work with false boolean discriminant", () => {
-      const testValue: BooleanDiscriminant = {
-        active: false,
-        reason: "disabled",
-      };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "active", false);
-      });
-    });
-
-    it("should throw for boolean mismatch - expected true got false", () => {
-      const testValue: BooleanDiscriminant = {
-        active: false,
-        reason: "disabled",
-      };
-
-      assert.throws(
-        () => {
-          validateDiscriminant(testValue, "active", true);
-        },
-        {
-          message: "Expected active=true, got false",
-        },
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
       );
-    });
 
-    it("should throw for boolean mismatch - expected false got true", () => {
-      const testValue: BooleanDiscriminant = {
-        active: true,
-        data: "active data",
-      };
+      const { result } = renderHook(() => useContext(true), {
+        wrapper,
+      });
 
-      assert.throws(
-        () => {
-          validateDiscriminant(testValue, "active", false);
-        },
-        {
-          message: "Expected active=false, got true",
-        },
-      );
+      assert.strictEqual(result.current.active, true);
+      assert.strictEqual(result.current.data, "test");
     });
   });
 
@@ -416,7 +530,12 @@ describe("Discriminated Context Validation Logic", () => {
           };
         };
 
-    it("should handle deeply nested objects - loaded", () => {
+    it("should handle deeply nested objects", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        ComplexState,
+        "kind"
+      >("kind");
+
       const testValue: ComplexState = {
         kind: "loaded",
         data: {
@@ -428,172 +547,157 @@ describe("Discriminated Context Validation Logic", () => {
         },
       };
 
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "kind", "loaded");
-      });
-    });
-
-    it("should handle empty state", () => {
-      const testValue: ComplexState = { kind: "empty" };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "kind", "empty");
-      });
-    });
-
-    it("should throw for complex type mismatch", () => {
-      const testValue: ComplexState = { kind: "empty" };
-
-      assert.throws(
-        () => {
-          validateDiscriminant(testValue, "kind", "loaded");
-        },
-        {
-          message: "Expected kind=loaded, got empty",
-        },
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
       );
+
+      const { result } = renderHook(() => useContext("loaded"), {
+        wrapper,
+      });
+
+      assert.strictEqual(result.current.kind, "loaded");
+      assert.strictEqual(result.current.data.items.length, 2);
+      assert.strictEqual(result.current.data.items[0]?.name, "Item 1");
+      assert.strictEqual(result.current.data.metadata.total, 2);
+    });
+  });
+
+  describe("multiple independent contexts", () => {
+    it("should allow creating and using multiple contexts independently", () => {
+      type ThemeState =
+        | { mode: "light" }
+        | { mode: "dark"; accent: string };
+
+      const authContext = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+      const themeContext = createDiscriminatedContext<
+        ThemeState,
+        "mode"
+      >("mode");
+
+      const authValue: AuthState = { status: "idle" };
+      const themeValue: ThemeState = {
+        mode: "dark",
+        accent: "#ff0000",
+      };
+
+      const authWrapper = ({
+        children,
+      }: {
+        children: React.ReactNode;
+      }) => (
+        <authContext.Context.Provider value={authValue}>
+          {children}
+        </authContext.Context.Provider>
+      );
+
+      const themeWrapper = ({
+        children,
+      }: {
+        children: React.ReactNode;
+      }) => (
+        <themeContext.Context.Provider value={themeValue}>
+          {children}
+        </themeContext.Context.Provider>
+      );
+
+      const { result: authResult } = renderHook(
+        () => authContext.useContext("idle"),
+        { wrapper: authWrapper },
+      );
+
+      const { result: themeResult } = renderHook(
+        () => themeContext.useContext("dark"),
+        { wrapper: themeWrapper },
+      );
+
+      assert.strictEqual(authResult.current.status, "idle");
+      assert.strictEqual(themeResult.current.mode, "dark");
+      assert.strictEqual(themeResult.current.accent, "#ff0000");
+    });
+  });
+
+  describe("nested providers", () => {
+    it("should use the closest provider value", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
+      const outerValue: AuthState = { status: "idle" };
+      const innerValue: AuthState = {
+        status: "authenticated",
+        user: { id: "1", name: "Inner User", email: "inner@test.com" },
+      };
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={outerValue}>
+          <Context.Provider value={innerValue}>
+            {children}
+          </Context.Provider>
+        </Context.Provider>
+      );
+
+      const { result } = renderHook(() => useContext("authenticated"), {
+        wrapper,
+      });
+
+      assert.strictEqual(result.current.status, "authenticated");
+      assert.strictEqual(result.current.user.name, "Inner User");
     });
   });
 
   describe("edge cases", () => {
-    it("should handle empty string values in data", () => {
+    it("should handle undefined optional properties", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
+      const testValue: AuthState = { status: "loading" }; // message is undefined
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
+      );
+
+      const { result } = renderHook(() => useContext("loading"), {
+        wrapper,
+      });
+
+      assert.strictEqual(result.current.status, "loading");
+      assert.strictEqual(result.current.message, undefined);
+    });
+
+    it("should handle empty string values", () => {
+      const { Context, useContext } = createDiscriminatedContext<
+        AuthState,
+        "status"
+      >("status");
+
       const testValue: AuthState = {
         status: "error",
         error: "",
         retryable: false,
       };
 
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "error");
-      });
-    });
-
-    it("should handle undefined optional properties", () => {
-      const testValue: AuthState = { status: "loading" };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "loading");
-      });
-
-      // Verify the message is undefined
-      assert.strictEqual(
-        (testValue as { status: "loading"; message?: string }).message,
-        undefined,
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <Context.Provider value={testValue}>
+          {children}
+        </Context.Provider>
       );
-    });
 
-    it("should handle objects with extra properties", () => {
-      const testValue = {
-        status: "idle",
-        extraProp: "should be ignored",
-      };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "idle");
-      });
-    });
-
-    it("should work with symbol discriminant values", () => {
-      const ACTIVE = Symbol("active");
-      const INACTIVE = Symbol("inactive");
-
-      type SymbolState =
-        | { state: typeof ACTIVE; data: string }
-        | { state: typeof INACTIVE };
-
-      const testValue: SymbolState = { state: ACTIVE, data: "test" };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(
-          testValue as Record<string, unknown>,
-          "state",
-          ACTIVE,
-        );
-      });
-    });
-  });
-
-  describe("multiple validations", () => {
-    it("should handle sequential validations on same value", () => {
-      const testValue: AuthState = { status: "idle" };
-
-      // First validation passes
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "idle");
+      const { result } = renderHook(() => useContext("error"), {
+        wrapper,
       });
 
-      // Second validation with same expected value passes
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "idle");
-      });
-
-      // Third validation with default passes
-      assert.doesNotThrow(() => {
-        validateDiscriminant(testValue, "status", "default");
-      });
-    });
-
-    it("should handle validations on different values", () => {
-      const idleValue: AuthState = { status: "idle" };
-      const authValue: AuthState = {
-        status: "authenticated",
-        user: { id: "1", name: "Test", email: "test@test.com" },
-      };
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(idleValue, "status", "idle");
-      });
-
-      assert.doesNotThrow(() => {
-        validateDiscriminant(authValue, "status", "authenticated");
-      });
-    });
-  });
-
-  describe("error message format", () => {
-    it("should include discriminant key name in error", () => {
-      const testValue: AuthState = { status: "idle" };
-
-      try {
-        validateDiscriminant(testValue, "status", "error");
-        assert.fail("Should have thrown");
-      } catch (e) {
-        assert.ok(e instanceof Error);
-        assert.ok(
-          e.message.includes("status"),
-          "Error should mention discriminant key",
-        );
-      }
-    });
-
-    it("should include expected value in error", () => {
-      const testValue: AuthState = { status: "idle" };
-
-      try {
-        validateDiscriminant(testValue, "status", "authenticated");
-        assert.fail("Should have thrown");
-      } catch (e) {
-        assert.ok(e instanceof Error);
-        assert.ok(
-          e.message.includes("authenticated"),
-          "Error should mention expected value",
-        );
-      }
-    });
-
-    it("should include actual value in error", () => {
-      const testValue: AuthState = { status: "idle" };
-
-      try {
-        validateDiscriminant(testValue, "status", "error");
-        assert.fail("Should have thrown");
-      } catch (e) {
-        assert.ok(e instanceof Error);
-        assert.ok(
-          e.message.includes("idle"),
-          "Error should mention actual value",
-        );
-      }
+      assert.strictEqual(result.current.error, "");
+      assert.strictEqual(result.current.retryable, false);
     });
   });
 });
