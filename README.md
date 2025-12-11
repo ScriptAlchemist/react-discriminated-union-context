@@ -245,6 +245,36 @@ example/src/
 - React 18.0.0 or higher (including React 19)
 - TypeScript 5.0 or higher (for best type inference)
 
+## Running Tests
+
+This project includes a comprehensive test suite using the Node.js built-in test runner and @testing-library/react.
+
+From the repository root, you can run:
+
+```bash
+# Install dependencies
+npm install
+
+# Type-check the library source
+npm run typecheck
+
+# Type-check the test files (uses tsconfig.test.json)
+npm run typecheck:test
+
+# Run the test suite in watch/interactive mode (if configured)
+npm test
+
+# Run the test suite in CI mode (no watch, suitable for pipelines)
+npm run test:ci
+```
+
+The tests cover:
+
+- Type narrowing behavior for discriminated unions
+- `'default'` behavior (including that it does not validate the discriminant)
+- Error handling when used outside of a Provider
+- Various discriminant types and runtime validation behavior
+
 ## License
 
 MIT

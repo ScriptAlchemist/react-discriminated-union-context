@@ -2,21 +2,24 @@ import { useAuthContext } from "../authContext";
 
 // Component that shows the full auth state (no narrowing)
 // Using 'default' allows destructuring all possible properties from any union member.
-// TypeScript provides hints for properties that require narrowing - hover over
-// 'user' or 'error' to see which useContext value gives access to that property.
 export function AuthStatus() {
   const auth = useAuthContext("default");
 
   // With 'default', you can destructure properties from any union member.
-  // Hover over 'user' or 'error' to see the narrowing hint:
-  // e.g., `Use useContext("authenticated") to access "user" (requires status="authenticated")`
-  const { status, user, error } = auth;
-
-  // Note: 'user' and 'error' may be undefined depending on the current state,
-  // so you should check the status before using them (or use narrowed contexts).
-  console.log("status:", status);
-  console.log("user:", user); // Hint type suggests useContext("authenticated")
-  console.log("error:", error); // Hint type suggests useContext("error")
+  // These will be typed as `T | undefined` since they don't exist on all variants.
+  const {
+    status,
+    user,
+    error,
+    errorCode,
+    retryable,
+    permissions,
+    session,
+    message,
+    provider,
+    reason,
+    unlockAt,
+  } = auth;
 
   return (
     <div
@@ -30,10 +33,85 @@ export function AuthStatus() {
       <p>
         Current status: <strong>{status}</strong>
       </p>
-      {status === "authenticated" && user && <p>User: {user.name}</p>}
-      {status === "error" && error && (
-        <p style={{ color: "red" }}>Error: {error}</p>
+
+      {/* Show loading message if present */}
+      {status === "loading" && message && (
+        <p style={{ color: "#666", fontStyle: "italic" }}>{message}</p>
       )}
+
+      {/* Show authenticating provider */}
+      {status === "authenticating" && provider && (
+        <p>
+          Authenticating with: <strong>{provider}</strong>
+        </p>
+      )}
+
+      {/* Show user info if authenticated */}
+      {status === "authenticated" && user && (
+        <div>
+          <p>
+            User: <strong>{user.name}</strong> ({user.email})
+          </p>
+          {permissions && (
+            <p style={{ fontSize: "0.8rem", color: "#666" }}>
+              Permissions: Edit={permissions.canEdit ? "✅" : "❌"},
+              Delete=
+              {permissions.canDelete ? "✅" : "❌"}, Invite=
+              {permissions.canInvite ? "✅" : "❌"}
+            </p>
+          )}
+          {session && (
+            <p style={{ fontSize: "0.8rem", color: "#666" }}>
+              Session expires: {session.expiresAt.toLocaleString()}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Show refreshing state */}
+      {status === "refreshing" && user && (
+        <p>
+          Refreshing session for: <strong>{user.name}</strong>
+        </p>
+      )}
+
+      {/* Show error info */}
+      {status === "error" && error && (
+        <div style={{ color: "#721c24" }}>
+          <p>
+            Error: {error} (code: {errorCode})
+          </p>
+          {retryable && (
+            <p style={{ fontSize: "0.8rem" }}>
+              This error can be retried.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Show locked info */}
+      {status === "locked" && reason && unlockAt && (
+        <div style={{ color: "#856404" }}>
+          <p>Locked: {reason}</p>
+          <p style={{ fontSize: "0.8rem" }}>
+            Unlock at: {unlockAt.toLocaleString()}
+          </p>
+        </div>
+      )}
+
+      <p
+        style={{
+          fontSize: "0.75rem",
+          color: "#999",
+          marginTop: "1rem",
+          borderTop: "1px solid #ddd",
+          paddingTop: "0.5rem",
+        }}
+      >
+        This component uses <code>useAuthContext("default")</code> to
+        get the full union type. All non-common properties are typed as{" "}
+        <code>T | undefined</code>.
+      </p>
     </div>
   );
 }

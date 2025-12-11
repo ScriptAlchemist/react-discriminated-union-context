@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-12-10
+
+### Added
+
+- Added comprehensive test suite using Node.js built-in test runner with @testing-library/react (27 tests)
+- Tests cover actual React hook behavior with providers, type narrowing, error handling, and different discriminant types
+- Added `test` and `test:ci` npm scripts
+- Added jsdom setup for React testing environment
+
+### Changed
+
+- Improved IDE autocomplete: narrowed types no longer show hint properties as suggestions
+- Fixed `useAuthContext("default")` to return actual property types (`string | undefined`) instead of confusing hint strings
+- Added `DeepPrettify` type to recursively expand nested object types in hover display
+- Removed `readonly` modifier from optional properties in default return type
+- Expanded example app with richer `AuthState` including `authenticating`, `refreshing`, and `locked` states
+- Example components now demonstrate all expanded nested types (`User`, `Permissions`, `SessionInfo`)
+
+### Removed
+
+- Removed `NarrowingHint` type (replaced with actual property types)
+- Removed `SuggestedKey` and `KeysNotInNarrowed` helper types (no longer needed)
+
 ## [1.2.0] - 2025-12-09
 
 ### Added
@@ -97,6 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ESM-only build output
 - Support for React 18 and React 19
 
+[1.3.0]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.3.0
 [1.2.0]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.2.0
 [1.1.8]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.1.8
 [1.0.8]: https://github.com/ScriptAlchemist/react-discriminated-union-context/releases/tag/v1.0.8
